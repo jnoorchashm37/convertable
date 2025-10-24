@@ -1,5 +1,7 @@
-#[cfg(feature = "alloy")]
-use alloy_primitives::{I256, U160, U256};
+#[cfg(all(feature = "bigdecimal", feature = "alloy"))]
+use alloy_primitives::Signed;
+#[cfg(all(feature = "malachite", feature = "alloy"))]
+use alloy_primitives::Uint;
 #[cfg(all(feature = "bigdecimal", feature = "alloy"))]
 use bigdecimal::num_bigint::BigUint;
 #[cfg(feature = "bigdecimal")]
@@ -15,35 +17,21 @@ pub trait Convert<T> {
 }
 
 #[cfg(all(feature = "bigdecimal", feature = "alloy"))]
-impl Convert<BigDecimal> for U256 {
+impl<const BITS: usize, const LIMBS: usize> Convert<BigDecimal> for Uint<BITS, LIMBS> {
     fn convert_to(&self) -> BigDecimal {
         BigDecimal::from(BigInt::from_bytes_le(Sign::Plus, &self.to_le_bytes_vec()))
     }
 }
 
 #[cfg(all(feature = "bigdecimal", feature = "alloy"))]
-impl Convert<U256> for BigDecimal {
-    fn convert_to(&self) -> U256 {
-        U256::from_le_slice(&self.as_bigint_and_scale().0.to_bytes_le().1)
+impl<const BITS: usize, const LIMBS: usize> Convert<Uint<BITS, LIMBS>> for BigDecimal {
+    fn convert_to(&self) -> Uint<BITS, LIMBS> {
+        Uint::<BITS, LIMBS>::from_le_slice(&self.as_bigint_and_scale().0.to_bytes_le().1)
     }
 }
 
 #[cfg(all(feature = "bigdecimal", feature = "alloy"))]
-impl Convert<BigDecimal> for U160 {
-    fn convert_to(&self) -> BigDecimal {
-        BigDecimal::from(BigInt::from_bytes_le(Sign::Plus, &self.to_le_bytes_vec()))
-    }
-}
-
-#[cfg(all(feature = "bigdecimal", feature = "alloy"))]
-impl Convert<U160> for BigDecimal {
-    fn convert_to(&self) -> U160 {
-        U160::from_le_slice(&self.as_bigint_and_scale().0.to_bytes_le().1)
-    }
-}
-
-#[cfg(all(feature = "bigdecimal", feature = "alloy"))]
-impl Convert<BigDecimal> for I256 {
+impl<const BITS: usize, const LIMBS: usize> Convert<BigDecimal> for Signed<BITS, LIMBS> {
     fn convert_to(&self) -> BigDecimal {
         let sign = if self.is_negative() {
             Sign::Minus
@@ -56,35 +44,36 @@ impl Convert<BigDecimal> for I256 {
 }
 
 #[cfg(all(feature = "bigdecimal", feature = "alloy"))]
-impl Convert<I256> for BigDecimal {
-    fn convert_to(&self) -> I256 {
-        I256::try_from_le_slice(&self.as_bigint_and_scale().0.to_bytes_le().1).unwrap()
+impl<const BITS: usize, const LIMBS: usize> Convert<Signed<BITS, LIMBS>> for BigDecimal {
+    fn convert_to(&self) -> Signed<BITS, LIMBS> {
+        Signed::<BITS, LIMBS>::try_from_le_slice(&self.as_bigint_and_scale().0.to_bytes_le().1)
+            .unwrap()
     }
 }
 
 #[cfg(all(feature = "bigdecimal", feature = "alloy"))]
-impl Convert<U256> for BigUint {
-    fn convert_to(&self) -> U256 {
-        U256::from_be_slice(&self.to_bytes_be())
+impl<const BITS: usize, const LIMBS: usize> Convert<Uint<BITS, LIMBS>> for BigUint {
+    fn convert_to(&self) -> Uint<BITS, LIMBS> {
+        Uint::<BITS, LIMBS>::from_be_slice(&self.to_bytes_be())
     }
 }
 
 #[cfg(all(feature = "bigdecimal", feature = "alloy"))]
-impl Convert<BigUint> for U256 {
+impl<const BITS: usize, const LIMBS: usize> Convert<BigUint> for Uint<BITS, LIMBS> {
     fn convert_to(&self) -> BigUint {
         BigUint::from_bytes_le(&self.to_le_bytes_vec())
     }
 }
 
 #[cfg(all(feature = "bigdecimal", feature = "alloy"))]
-impl Convert<I256> for BigInt {
-    fn convert_to(&self) -> I256 {
-        I256::try_from_be_slice(&self.to_bytes_be().1).unwrap()
+impl<const BITS: usize, const LIMBS: usize> Convert<Signed<BITS, LIMBS>> for BigInt {
+    fn convert_to(&self) -> Signed<BITS, LIMBS> {
+        Signed::<BITS, LIMBS>::try_from_be_slice(&self.to_bytes_be().1).unwrap()
     }
 }
 
 #[cfg(all(feature = "bigdecimal", feature = "alloy"))]
-impl Convert<BigInt> for I256 {
+impl<const BITS: usize, const LIMBS: usize> Convert<BigInt> for Signed<BITS, LIMBS> {
     fn convert_to(&self) -> BigInt {
         let sign = match (self.is_zero(), self.sign()) {
             (true, _) => bigdecimal::num_bigint::Sign::NoSign,
@@ -98,7 +87,7 @@ impl Convert<BigInt> for I256 {
 #[cfg(all(feature = "bigdecimal", feature = "malachite"))]
 impl Convert<Natural> for BigUint {
     fn convert_to(&self) -> Natural {
-        let v: U256 = self.convert_to();
+        let v: alloy_primitives::U256 = self.convert_to();
         v.convert_to()
     }
 }
@@ -106,29 +95,29 @@ impl Convert<Natural> for BigUint {
 #[cfg(all(feature = "bigdecimal", feature = "malachite"))]
 impl Convert<BigUint> for Natural {
     fn convert_to(&self) -> BigUint {
-        let v: U256 = self.convert_to();
+        let v: alloy_primitives::U256 = self.convert_to();
         v.convert_to()
     }
 }
 
 #[cfg(all(feature = "malachite", feature = "alloy"))]
-impl Convert<Natural> for U256 {
+impl<const BITS: usize, const LIMBS: usize> Convert<Natural> for Uint<BITS, LIMBS> {
     fn convert_to(&self) -> Natural {
         Natural::from_limbs_asc(self.as_limbs())
     }
 }
 
 #[cfg(all(feature = "malachite", feature = "alloy"))]
-impl Convert<Rational> for U256 {
+impl<const BITS: usize, const LIMBS: usize> Convert<Rational> for Uint<BITS, LIMBS> {
     fn convert_to(&self) -> Rational {
         Rational::from_naturals(self.convert_to(), Natural::ONE)
     }
 }
 
 #[cfg(all(feature = "malachite", feature = "alloy"))]
-impl Convert<U256> for Natural {
-    fn convert_to(&self) -> U256 {
-        U256::from_limbs_slice(&self.to_limbs_asc())
+impl<const BITS: usize, const LIMBS: usize> Convert<Uint<BITS, LIMBS>> for Natural {
+    fn convert_to(&self) -> Uint<BITS, LIMBS> {
+        Uint::<BITS, LIMBS>::from_limbs_slice(&self.to_limbs_asc())
     }
 }
 
