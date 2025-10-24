@@ -42,7 +42,10 @@ impl<const BITS: usize, const LIMBS: usize> Convert<BigDecimal> for Signed<BITS,
         };
 
         let unsigned_value = self.unsigned_abs();
-        BigDecimal::from(BigInt::from_bytes_le(sign, &unsigned_value.to_le_bytes_vec()))
+        BigDecimal::from(BigInt::from_bytes_le(
+            sign,
+            &unsigned_value.to_le_bytes_vec(),
+        ))
     }
 }
 
@@ -238,16 +241,6 @@ where
     D: Convert<T>,
 {
     fn convert_to(&self) -> Option<T> {
-        self.as_ref().map(|v| v.convert_to())
-    }
-}
-
-
-impl<T, D, E> Convert<Result<T, E>> for Result<D, E>
-where
-    D: Convert<T>,
-{
-    fn convert_to(&self) -> Result<T, E> {
         self.as_ref().map(|v| v.convert_to())
     }
 }
