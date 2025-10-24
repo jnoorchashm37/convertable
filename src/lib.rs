@@ -9,6 +9,8 @@ use bigdecimal::{
     BigDecimal,
     num_bigint::{BigInt, Sign},
 };
+#[cfg(all(feature = "bigdecimal", feature = "malachite"))]
+use malachite::Integer;
 #[cfg(feature = "malachite")]
 use malachite::{Natural, Rational, num::basic::traits::One};
 
@@ -51,6 +53,27 @@ impl<const BITS: usize, const LIMBS: usize> Convert<Signed<BITS, LIMBS>> for Big
     }
 }
 
+impl<const BITS: usize, const LIMBS: usize> Convert<Integer> for Signed<BITS, LIMBS> {
+    fn convert_to(&self) -> Integer {
+        Integer::from_twos_complement_limbs_asc(self.as_limbs())
+    }
+}
+
+#[cfg(all(feature = "bigdecimal", feature = "alloy"))]
+impl<const BITS: usize, const LIMBS: usize> Convert<Signed<BITS, LIMBS>> for Integer {
+    fn convert_to(&self) -> Signed<BITS, LIMBS> {
+        let limbs = self.to_twos_complement_limbs_asc();
+        let limbs_asc_exact: [u64; LIMBS] = if limbs.len() >= LIMBS {
+            limbs[LIMBS..].try_into().unwrap()
+        } else {
+            let mut l = [0; LIMBS].to_vec();
+            l.extend(limbs);
+            l[LIMBS..].try_into().unwrap()
+        };
+        Signed::<BITS, LIMBS>::from_limbs(limbs_asc_exact)
+    }
+}
+
 #[cfg(all(feature = "bigdecimal", feature = "alloy"))]
 impl<const BITS: usize, const LIMBS: usize> Convert<Uint<BITS, LIMBS>> for BigUint {
     fn convert_to(&self) -> Uint<BITS, LIMBS> {
@@ -87,7 +110,9 @@ impl<const BITS: usize, const LIMBS: usize> Convert<BigInt> for Signed<BITS, LIM
 #[cfg(all(feature = "bigdecimal", feature = "malachite"))]
 impl Convert<Natural> for BigUint {
     fn convert_to(&self) -> Natural {
-        let v: alloy_primitives::U256 = self.convert_to();
+        use alloy_primitives::U256;
+
+        let v: U256 = self.convert_to();
         v.convert_to()
     }
 }
@@ -95,7 +120,39 @@ impl Convert<Natural> for BigUint {
 #[cfg(all(feature = "bigdecimal", feature = "malachite"))]
 impl Convert<BigUint> for Natural {
     fn convert_to(&self) -> BigUint {
-        let v: alloy_primitives::U256 = self.convert_to();
+        use alloy_primitives::U256;
+
+        let v: U256 = self.convert_to();
+        v.convert_to()
+    }
+}
+
+#[cfg(all(feature = "bigdecimal", feature = "malachite"))]
+impl Convert<BigInt> for Natural {
+    fn convert_to(&self) -> BigInt {
+        use alloy_primitives::{I256, U256};
+
+        let v: U256 = self.convert_to();
+        I256::from(v).convert_to()
+    }
+}
+
+#[cfg(all(feature = "bigdecimal", feature = "malachite"))]
+impl Convert<Integer> for BigInt {
+    fn convert_to(&self) -> Integer {
+        use alloy_primitives::I256;
+
+        let v: I256 = self.convert_to();
+        v.convert_to()
+    }
+}
+
+#[cfg(all(feature = "bigdecimal", feature = "malachite"))]
+impl Convert<BigInt> for Integer {
+    fn convert_to(&self) -> BigInt {
+        use alloy_primitives::I256;
+
+        let v: I256 = self.convert_to();
         v.convert_to()
     }
 }
@@ -164,4 +221,9 @@ where
     fn convert_to(&self) -> Option<T> {
         self.as_ref().map(|v| v.convert_to())
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
 }
