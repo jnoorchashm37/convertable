@@ -49,11 +49,16 @@ impl<const BITS: usize, const LIMBS: usize> Convert<BigDecimal> for Signed<BITS,
 #[cfg(all(feature = "bigdecimal", feature = "alloy"))]
 impl<const BITS: usize, const LIMBS: usize> Convert<Signed<BITS, LIMBS>> for BigDecimal {
     fn convert_to(&self) -> Signed<BITS, LIMBS> {
-        Signed::<BITS, LIMBS>::try_from_le_slice(&self.as_bigint_and_scale().0.to_bytes_le().1)
-            .unwrap()
+        let (sign, bytes) = self.as_bigint_and_scale().0.to_bytes_le();
+        let unsigned = Uint::<BITS, LIMBS>::from_le_slice(&bytes);
+        match sign {
+            bigdecimal::num_bigint::Sign::Minus => Signed::from_raw(unsigned).wrapping_neg(),
+            _ => Signed::from_raw(unsigned),
+        }
     }
 }
 
+#[cfg(all(feature = "malachite", feature = "alloy"))]
 impl<const BITS: usize, const LIMBS: usize> Convert<Integer> for Signed<BITS, LIMBS> {
     fn convert_to(&self) -> Integer {
         Integer::from_twos_complement_limbs_asc(self.as_limbs())
@@ -65,11 +70,18 @@ impl<const BITS: usize, const LIMBS: usize> Convert<Signed<BITS, LIMBS>> for Int
     fn convert_to(&self) -> Signed<BITS, LIMBS> {
         let limbs = self.to_twos_complement_limbs_asc();
         let limbs_asc_exact: [u64; LIMBS] = if limbs.len() >= LIMBS {
-            limbs[LIMBS..].try_into().unwrap()
+            limbs[0..LIMBS].try_into().unwrap()
         } else {
-            let mut l = [0; LIMBS].to_vec();
-            l.extend(limbs);
-            l[LIMBS..].try_into().unwrap()
+            let mut l = vec![0u64; LIMBS];
+            for (i, limb) in limbs.iter().enumerate() {
+                l[i] = *limb;
+            }
+            if self < &Integer::from(0) {
+                for i in limbs.len()..LIMBS {
+                    l[i] = u64::MAX;
+                }
+            }
+            l.try_into().unwrap()
         };
         Signed::<BITS, LIMBS>::from_limbs(limbs_asc_exact)
     }
@@ -92,7 +104,12 @@ impl<const BITS: usize, const LIMBS: usize> Convert<BigUint> for Uint<BITS, LIMB
 #[cfg(all(feature = "bigdecimal", feature = "alloy"))]
 impl<const BITS: usize, const LIMBS: usize> Convert<Signed<BITS, LIMBS>> for BigInt {
     fn convert_to(&self) -> Signed<BITS, LIMBS> {
-        Signed::<BITS, LIMBS>::try_from_be_slice(&self.to_bytes_be().1).unwrap()
+        let (sign, bytes) = self.to_bytes_be();
+        let unsigned = Uint::<BITS, LIMBS>::from_be_slice(&bytes);
+        match sign {
+            bigdecimal::num_bigint::Sign::Minus => Signed::from_raw(unsigned).wrapping_neg(),
+            _ => Signed::from_raw(unsigned),
+        }
     }
 }
 
@@ -221,6 +238,16 @@ where
     D: Convert<T>,
 {
     fn convert_to(&self) -> Option<T> {
+        self.as_ref().map(|v| v.convert_to())
+    }
+}
+
+
+impl<T, D, E> Convert<Result<T, E>> for Result<D, E>
+where
+    D: Convert<T>,
+{
+    fn convert_to(&self) -> Result<T, E> {
         self.as_ref().map(|v| v.convert_to())
     }
 }
@@ -701,10 +728,12 @@ mod tests {
             let bd_neg: BigDecimal = f_neg.convert_to();
             assert_eq!(bd_neg, BigDecimal::from(-123));
 
-            // Test decimal
+            // Test decimal - f64 has limited precision, so we need to check approximately
             let f_dec = 123.456f64;
             let bd_dec: BigDecimal = f_dec.convert_to();
-            assert_eq!(bd_dec.to_string(), "123.456");
+            // Convert back to f64 and compare with epsilon
+            let back_to_f64: f64 = bd_dec.to_string().parse().unwrap();
+            assert!((back_to_f64 - f_dec).abs() < 1e-10);
         }
 
         #[test]
