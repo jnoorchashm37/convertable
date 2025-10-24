@@ -95,6 +95,22 @@ impl Convert<BigInt> for I256 {
     }
 }
 
+#[cfg(all(feature = "bigdecimal", feature = "malachite"))]
+impl Convert<Natural> for BigUint {
+    fn convert_to(&self) -> Natural {
+        let v: U256 = self.convert_to();
+        v.convert_to()
+    }
+}
+
+#[cfg(all(feature = "bigdecimal", feature = "malachite"))]
+impl Convert<BigUint> for Natural {
+    fn convert_to(&self) -> BigUint {
+        let v: U256 = self.convert_to();
+        v.convert_to()
+    }
+}
+
 #[cfg(all(feature = "malachite", feature = "alloy"))]
 impl Convert<Natural> for U256 {
     fn convert_to(&self) -> Natural {
