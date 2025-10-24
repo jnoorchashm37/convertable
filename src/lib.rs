@@ -1,5 +1,7 @@
 #[cfg(feature = "alloy")]
 use alloy_primitives::{I256, U160, U256};
+#[cfg(all(feature = "bigdecimal", feature = "alloy"))]
+use bigdecimal::num_bigint::BigUint;
 #[cfg(feature = "bigdecimal")]
 use bigdecimal::{
     BigDecimal,
@@ -57,6 +59,39 @@ impl Convert<BigDecimal> for I256 {
 impl Convert<I256> for BigDecimal {
     fn convert_to(&self) -> I256 {
         I256::try_from_le_slice(&self.as_bigint_and_scale().0.to_bytes_le().1).unwrap()
+    }
+}
+
+#[cfg(all(feature = "bigdecimal", feature = "alloy"))]
+impl Convert<U256> for BigUint {
+    fn convert_to(&self) -> U256 {
+        U256::from_be_slice(&self.to_bytes_be())
+    }
+}
+
+#[cfg(all(feature = "bigdecimal", feature = "alloy"))]
+impl Convert<BigUint> for U256 {
+    fn convert_to(&self) -> BigUint {
+        BigUint::from_bytes_le(&self.to_le_bytes_vec())
+    }
+}
+
+#[cfg(all(feature = "bigdecimal", feature = "alloy"))]
+impl Convert<I256> for BigInt {
+    fn convert_to(&self) -> I256 {
+        I256::try_from_be_slice(&self.to_bytes_be().1).unwrap()
+    }
+}
+
+#[cfg(all(feature = "bigdecimal", feature = "alloy"))]
+impl Convert<BigInt> for I256 {
+    fn convert_to(&self) -> BigInt {
+        let sign = match (self.is_zero(), self.sign()) {
+            (true, _) => bigdecimal::num_bigint::Sign::NoSign,
+            (_, alloy_primitives::Sign::Negative) => bigdecimal::num_bigint::Sign::Minus,
+            (_, alloy_primitives::Sign::Positive) => bigdecimal::num_bigint::Sign::Plus,
+        };
+        BigInt::from_bytes_le(sign, &self.to_le_bytes::<32>())
     }
 }
 
