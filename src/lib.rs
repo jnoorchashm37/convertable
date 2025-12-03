@@ -27,7 +27,7 @@ pub trait Convert {
 
 impl<A> Convert for A {}
 
-trait Convertable<T> {
+pub trait Convertable<T> {
     fn convertable_to(&self) -> T;
 }
 
